@@ -8,9 +8,13 @@ import os
 # distance per round, rounds with a kill, rounds with a multi-kill, rounds survived, rounds with an ace, rounds with a clutch
 
 # parameters
-std_overall_params = [1 * 0.05, 1 * 10, 1 * 0.1, 1 * 10,
-                      0.75 * 100]  # win rate and wins, k/d, kost, kills per round, % played
-std_roam_params = [0.5 * 0.05, 6 * 0.05, -10 * 0.05, 0.03]  # movement, ok, od, win rate and wins
+#                    win rate,   k/d,         kost,     kills per round,  % played
+#                       (50)            (1)         (100)         (1)             (1)
+std_overall_params = [20 * 0.01,        0.5 * 1,     10 * 0.001,      1 * 1,        20 * 1   ]
+
+#                   movement,  opening kills, opening deaths,     win rate
+#                     (100)        (100)           (100)            (50)
+std_roam_params = [4 * 0.01,     10 * 0.01,       -20 * 0.01,     20 * 0.01   ]
 
 
 def create_table(score_dicts, value_names, first, last):
@@ -73,15 +77,14 @@ def handle_player(pfile, overall_params, roam_params, print_individual_statistic
 
         # gather all materials
         op_time_played = op_data['TIMEPLAYED']  # (minutes)
-        if op_time_played < 15:  # minutes
+        if op_time_played < 20:  # minutes
             continue
         op_presence = op_time_played / (total_time_played_atk if is_atk else total_time_played_def)
 
         # impact and effectiveness #
         win_rate = op_data['WIN %'] - 50.0
-        wins = op_data['WINS']  # using this with win rate because some people have 1 win. (games)
         k_d = op_data['K/D'] - 1
-        kills_per_round = op_data['KPR'] - (2. / 3.)
+        kills_per_round = op_data['KPR'] - 1
         kost = op_data['KOST']
 
         # roaming #
@@ -89,11 +92,14 @@ def handle_player(pfile, overall_params, roam_params, print_individual_statistic
         od = op_data['OD']
         dist_travelled = op_data['DISTANCE PER ROUND']  # (meters)
 
-        op_score = win_rate * wins * overall_params[0] + k_d * overall_params[1] + kost * overall_params[
+        op_score = win_rate * overall_params[0] + k_d * overall_params[1] + kost * overall_params[
             2] + kills_per_round * overall_params[
                        3] + op_presence * overall_params[4]
-        op_roam = dist_travelled * roam_params[0] + ok * roam_params[1] + od * roam_params[2] + win_rate * wins * \
+        op_roam = dist_travelled * roam_params[0] + ok * roam_params[1] + od * roam_params[2] + win_rate * \
                   roam_params[3]
+
+        op_score *= 2.5
+        op_roam *= 1
 
         if is_atk:
             op_overall_scores_atk[operator] = op_score
@@ -113,14 +119,28 @@ def handle_player(pfile, overall_params, roam_params, print_individual_statistic
                           sorted(op_roam_scores_def.items(), key=lambda ele: ele[1], reverse=True)}
 
     if print_individual_statistics:
+        score_atk = op_overall_scores_atk.copy()
+        score_def = op_overall_scores_def.copy()
+        roam_atk = op_roam_scores_atk.copy()
+        roam_def = op_roam_scores_def.copy()
         print()
         print('STATS FOR', str(pfile).split('/')[1].split('.')[0], ':')
+
         print('[ATTACK]')
-        print(create_table([op_overall_scores_atk, op_roam_scores_atk], ['Impact', 'RoamEff'], 5, 3))
-        print(create_table([op_roam_scores_atk, op_overall_scores_atk], ['RoamEff', 'Impact'], 5, 5))
+        print(create_table([score_atk, roam_atk], ['Impact', 'RoamEff'], 5, 3))
+        for op in lookup.ATK_OPS:
+            if op in roam_atk and roam_atk[op] < 8:
+                score_atk.pop(op)
+                roam_atk.pop(op)
+        print(create_table([roam_atk, score_atk], ['RoamEff', 'Impact'], 5, 5))
+
         print('\n[DEFENCE]')
-        print(create_table([op_overall_scores_def, op_roam_scores_def], ['Impact', 'RoamEff'], 5, 3))
-        print(create_table([op_roam_scores_def, op_overall_scores_def], ['RoamEff', 'Impact'], 5, 5))
+        print(create_table([score_def, roam_def], ['Impact', 'RoamEff'], 5, 3))
+        for op in lookup.DEF_OPS:
+            if op in roam_def and roam_def[op] < 8:
+                score_def.pop(op)
+                roam_def.pop(op)
+        print(create_table([roam_def, score_def], ['RoamEff', 'Impact'], 5, 5))
         print()
 
     return (op_overall_scores_atk, op_roam_scores_atk), (op_overall_scores_def, op_roam_scores_def)
@@ -311,30 +331,40 @@ def presence_report(team):
     op_dpresence = {}
     for file in os.listdir(directory):
         (apresence, aroameff), (dpresence, droameff) = handle_player(team + '/' + str(os.fsdecode(file)),
-                                                                     [0, 0, 0, 0, 100], [0, 0, 0, 0], verbose_stats)
+                                                                     std_overall_params, std_roam_params, verbose_stats)
         for op in apresence:
             if op not in op_apresence:
-                op_apresence[op] = apresence[op] / 5.
+                op_apresence[op] = apresence[op]
             else:
-                op_apresence[op] += apresence[op] / 5.
+                op_apresence[op] += apresence[op]
+        total_apresence = 0
+        for val in op_apresence.values():
+            total_apresence += abs(val)
+        for key in op_apresence.keys():
+            op_apresence[key] /= total_apresence / 100.
         op_apresence = {key: val for key, val in sorted(op_apresence.items(), key=lambda ele: ele[1], reverse=True)}
         for op in dpresence:
             if op not in op_dpresence:
-                op_dpresence[op] = dpresence[op] / 5.
+                op_dpresence[op] = dpresence[op]
             else:
-                op_dpresence[op] += dpresence[op] / 5.
+                op_dpresence[op] += dpresence[op]
+        total_dpresence = 0
+        for val in op_dpresence.values():
+            total_dpresence += abs(val)
+        for key in op_dpresence.keys():
+            op_dpresence[key] /= total_dpresence / 100.
         op_dpresence = {key: val for key, val in sorted(op_dpresence.items(), key=lambda ele: ele[1], reverse=True)}
 
     print()
     print('PRESENCE REPORT (', team, '):')
     print('[ATTACK]')
-    print(create_table([op_apresence], ['Presence (%)'], 10, 0))
+    print(create_table([op_apresence], ['Presence'], 10, 0))
     print('[DEFENCE]')
-    print(create_table([op_dpresence], ['Presence (%)'], 10, 0))
+    print(create_table([op_dpresence], ['Presence'], 10, 0))
 
 
 # END FUNCTION DEFINITIONS #
 verbose_stats = True
-ban_report()
+# ban_report()
 print('\n\n')
 presence_report('home_team')
