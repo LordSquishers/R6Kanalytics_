@@ -7,7 +7,7 @@ import os
 # timeplayed, kills, deaths, k/d, wins, losses, win %, kost, headshots, kpr, ok (opening kills), od (opening deaths),
 # distance per round, rounds with a kill, rounds with a multi-kill, rounds survived, rounds with an ace, rounds with a clutch
 
-# parameters
+# parameters (must delete players.json if you change the parameters.)
 #                    win rate,   k/d,         kost,     kills per round,  % played
 #                       (50)            (1)         (100)         (1)             (1)
 std_overall_params = [20 * 0.01,        0.5 * 1,     10 * 0.001,      1 * 1,        20 * 1   ]
@@ -15,6 +15,9 @@ std_overall_params = [20 * 0.01,        0.5 * 1,     10 * 0.001,      1 * 1,    
 #                   movement,  opening kills, opening deaths,     win rate
 #                     (100)        (100)           (100)            (50)
 std_roam_params = [4 * 0.01,     10 * 0.01,       -20 * 0.01,     20 * 0.01   ]
+
+# how much influence your team's performance has on bans (a really bad teammate will influence priorities) (1 means atk = def)
+HOME_TEAM_BAN_INFLUENCE_MULTIPLIER = 3
 
 
 def create_table(score_dicts, value_names, first, last):
@@ -118,40 +121,70 @@ def handle_player(pfile, overall_params, roam_params, print_individual_statistic
     op_roam_scores_def = {key: val for key, val in
                           sorted(op_roam_scores_def.items(), key=lambda ele: ele[1], reverse=True)}
 
+    score_atk = op_overall_scores_atk.copy()
+    score_def = op_overall_scores_def.copy()
+    roam_atk = op_roam_scores_atk.copy()
+    roam_def = op_roam_scores_def.copy()
     if print_individual_statistics:
-        score_atk = op_overall_scores_atk.copy()
-        score_def = op_overall_scores_def.copy()
-        roam_atk = op_roam_scores_atk.copy()
-        roam_def = op_roam_scores_def.copy()
         print()
         print('STATS FOR', str(pfile).split('/')[1].split('.')[0], ':')
 
         print('[ATTACK]')
         print(create_table([score_atk, roam_atk], ['Impact', 'RoamEff'], 5, 3))
-        for op in lookup.ATK_OPS:
-            if op in roam_atk and roam_atk[op] < 8:
-                score_atk.pop(op)
-                roam_atk.pop(op)
+    for op in lookup.ATK_OPS:
+        if op in roam_atk and roam_atk[op] < 4:
+            score_atk.pop(op)
+            roam_atk.pop(op)
+    if print_individual_statistics:
         print(create_table([roam_atk, score_atk], ['RoamEff', 'Impact'], 5, 5))
 
         print('\n[DEFENCE]')
         print(create_table([score_def, roam_def], ['Impact', 'RoamEff'], 5, 3))
-        for op in lookup.DEF_OPS:
-            if op in roam_def and roam_def[op] < 8:
-                score_def.pop(op)
-                roam_def.pop(op)
+    for op in lookup.DEF_OPS:
+        if op in roam_def and roam_def[op] < 8:
+            score_def.pop(op)
+            roam_def.pop(op)
+    if print_individual_statistics:
         print(create_table([roam_def, score_def], ['RoamEff', 'Impact'], 5, 5))
         print()
 
-    return (op_overall_scores_atk, op_roam_scores_atk), (op_overall_scores_def, op_roam_scores_def)
+    total_atk_ops = 0
+    total_atk_score = 0
+    for value in score_atk.values():
+        total_atk_score += value
+        total_atk_ops += 1
+    total_atk_ops = max(total_atk_ops, 1)
+    score_avg_atk = total_atk_score / total_atk_ops
+
+    total_def_ops = 0
+    total_def_score = 0
+    for value in score_def.values():
+        total_def_score += value
+        total_def_ops += 1
+    total_def_ops = max(total_def_ops, 1)
+    score_avg_def = total_def_score / total_def_ops
+
+    total_atk_roam = 0
+    for value in roam_atk.values():
+        total_atk_roam += value
+    roam_avg_atk = total_atk_roam / total_atk_ops
+
+    total_def_roam = 0
+    for value in roam_def.values():
+        total_def_roam += value
+    roam_avg_def = total_def_roam / total_def_ops
+
+    if save_to_database:
+        save_player_to_database(pfile.name[:-5], [op_overall_scores_atk, op_roam_scores_atk, op_overall_scores_def, op_roam_scores_def, score_avg_atk, score_avg_def, roam_avg_atk, roam_avg_def])
+    return (op_overall_scores_atk, op_roam_scores_atk), (op_overall_scores_def, op_roam_scores_def), (score_avg_atk, score_avg_def), (roam_avg_atk, roam_avg_def)
 
 
-def ban_report():
+def ban_report(home_team='home_team', away_team='away_team'):
     ban_prio_scores_atk = {}
     ban_prio_scores_def = {}
 
     # ========= AWAY ========= #
-    directory = os.fsencode('away_team')
+    directory = os.fsencode(away_team)
     op_scores_away_atk = {}
     op_roams_away_atk = {}
     op_scores_away_def = {}
@@ -163,7 +196,7 @@ def ban_report():
     away_op_roam_total_def = 0
 
     for file in os.listdir(directory):
-        (aops, aors), (dops, dors) = handle_player('away_team/' + str(os.fsdecode(file)), std_overall_params,
+        (aops, aors), (dops, dors), (soa, sod), (roa, rod) = handle_player(away_team + '/' + str(os.fsdecode(file)), std_overall_params,
                                                    std_roam_params, verbose_stats)
 
         # AGGREGATING OP SCORES ATK
@@ -218,7 +251,7 @@ def ban_report():
     # ====== END AWAY ======= #
 
     # ========= HOME ========= #
-    directory = os.fsencode('home_team')
+    directory = os.fsencode(home_team)
     op_scores_home_atk = {}
     op_scores_home_def = {}
     op_roams_home_atk = {}
@@ -230,7 +263,7 @@ def ban_report():
     home_op_roam_total_def = 0
 
     for file in os.listdir(directory):
-        (aops, aors), (dops, dors) = handle_player('home_team/' + str(os.fsdecode(file)), std_overall_params,
+        (aops, aors), (dops, dors), (soa, sod), (roa, rod) = handle_player(home_team + '/' + str(os.fsdecode(file)), std_overall_params,
                                                    std_roam_params, verbose_stats)
 
         # AGGREGATING OP SCORES ATK
@@ -239,7 +272,7 @@ def ban_report():
             if op not in ban_prio_scores_atk:  # SORT BAN PRIORITIES
                 ban_prio_scores_atk[op] = aops[op]
             else:
-                ban_prio_scores_atk[op] -= aops[op]
+                ban_prio_scores_atk[op] -= aops[op] / HOME_TEAM_BAN_INFLUENCE_MULTIPLIER
 
             if op not in op_scores_home_atk:  # SORT IMPACTS
                 op_scores_home_atk[op] = aops[op]
@@ -251,7 +284,7 @@ def ban_report():
             if op not in ban_prio_scores_def:  # SORT BAN PRIORITIES
                 ban_prio_scores_def[op] = dops[op]
             else:
-                ban_prio_scores_def[op] -= dops[op]
+                ban_prio_scores_def[op] -= dops[op] / HOME_TEAM_BAN_INFLUENCE_MULTIPLIER
 
             if op not in op_scores_home_def:  # SORT IMPACTS
                 op_scores_home_def[op] = dops[op]
@@ -330,8 +363,9 @@ def presence_report(team):
     op_apresence = {}
     op_dpresence = {}
     for file in os.listdir(directory):
-        (apresence, aroameff), (dpresence, droameff) = handle_player(team + '/' + str(os.fsdecode(file)),
+        (apresence, aroameff), (dpresence, droameff), (scoreavgatk, scoreavgdef), (roamavgatk, roamavgdef) = handle_player(team + '/' + str(os.fsdecode(file)),
                                                                      std_overall_params, std_roam_params, verbose_stats)
+
         for op in apresence:
             if op not in op_apresence:
                 op_apresence[op] = apresence[op]
@@ -354,6 +388,12 @@ def presence_report(team):
         for key in op_dpresence.keys():
             op_dpresence[key] /= total_dpresence / 100.
         op_dpresence = {key: val for key, val in sorted(op_dpresence.items(), key=lambda ele: ele[1], reverse=True)}
+        print("Player: "  + str(file))
+        print("Avg. Impact (ATK): " + str(round(scoreavgatk, 2)))
+        print("Avg. Impact (DEF): " + str(round(scoreavgdef, 2)))
+        print("Avg. RoamEff (ATK): " + str(round(roamavgatk, 2)))
+        print("Avg. RoamEff (DEF): " + str(round(roamavgdef, 2)))
+        print()
 
     print()
     print('PRESENCE REPORT (', team, '):')
@@ -363,8 +403,36 @@ def presence_report(team):
     print(create_table([op_dpresence], ['Presence'], 10, 0))
 
 
+# DATABASE SAVING #
+def write_database_file():
+    with open('players.json', 'w') as f:
+        f.write(json.dumps(db))
+
+def save_player_to_database(player_name, stats):
+    db[player_name] = {
+        "impact_atk": stats[0],
+        "roam_atk": stats[1],
+        "impact_def": stats[2],
+        "roam_def": stats[3],
+        "impact_avg_atk": stats[4],
+        "impact_avg_def": stats[5],
+        "roam_avg_atk": stats[6],
+        "roam_avg_def": stats[7]
+    }
+
+
+
 # END FUNCTION DEFINITIONS #
-verbose_stats = True
-# ban_report()
+verbose_stats = False
+
+save_to_database = True
+db = {}
+
+ban_report(home_team='coolvibes',away_team='dokkaebees')
 print('\n\n')
-presence_report('home_team')
+# presence_report('coolvibes')
+
+if save_to_database:
+    write_database_file()
+
+#TODO: write ideal team analysis
