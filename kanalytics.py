@@ -179,7 +179,7 @@ def handle_player(pfile, overall_params, roam_params, print_individual_statistic
     return (op_overall_scores_atk, op_roam_scores_atk), (op_overall_scores_def, op_roam_scores_def), (score_avg_atk, score_avg_def), (roam_avg_atk, roam_avg_def)
 
 
-def ban_report(home_team='home_team', away_team='away_team'):
+def ban_report(home_team='home_team', away_team='away_team', show_home=False):
     ban_prio_scores_atk = {}
     ban_prio_scores_def = {}
 
@@ -333,27 +333,28 @@ def ban_report(home_team='home_team', away_team='away_team'):
     print('BAN PRIORITY (DEF):')
     print(create_table([ban_prio_scores_def], ['Priority'], 5, 0))
     print()
-    print('AWAY:')
+    print('AWAY (', round(away_op_score_total_atk + away_op_score_total_def), '):')
     print('[ATTACK]')
     print(create_table([op_scores_away_atk, op_roams_away_atk], ['Team Impact', 'Team RoamEff'], 5, 3))
-    print(create_table([op_roams_away_atk, op_scores_away_atk], ['Team RoamEff', 'Team Impact'], 5, 5))
+    print(create_table([op_roams_away_atk, op_scores_away_atk], ['Team RoamEff', 'Team Impact'], 5, 0))
     print('[DEFENCE]')
     print(create_table([op_scores_away_def, op_roams_away_def], ['Team Impact', 'Team RoamEff'], 5, 3))
-    print(create_table([op_roams_away_def, op_scores_away_def], ['Team RoamEff', 'Team Impact'], 5, 5))
+    print(create_table([op_roams_away_def, op_scores_away_def], ['Team RoamEff', 'Team Impact'], 5, 0))
     print()
-    print('HOME:')
-    print('[ATTACK]')
-    print(create_table([op_scores_home_atk, op_roams_home_atk], ['Team Impact', 'Team RoamEff'], 5, 3))
-    print(create_table([op_roams_home_atk, op_scores_home_atk], ['Team RoamEff', 'Team Impact'], 5, 5))
-    print('[DEFENCE]')
-    print(create_table([op_scores_home_def, op_roams_home_def], ['Team Impact', 'Team RoamEff'], 5, 3))
-    print(create_table([op_roams_home_def, op_scores_home_def], ['Team RoamEff', 'Team Impact'], 5, 5))
+    if show_home:
+        print('HOME (', round(home_op_score_total_atk + home_op_score_total_def), '):')
+        print('[ATTACK]')
+        print(create_table([op_scores_home_atk, op_roams_home_atk], ['Team Impact', 'Team RoamEff'], 5, 3))
+        print(create_table([op_roams_home_atk, op_scores_home_atk], ['Team RoamEff', 'Team Impact'], 5, 0))
+        print('[DEFENCE]')
+        print(create_table([op_scores_home_def, op_roams_home_def], ['Team Impact', 'Team RoamEff'], 5, 3))
+        print(create_table([op_roams_home_def, op_scores_home_def], ['Team RoamEff', 'Team Impact'], 5, 0))
     print()
-    print('Overall Teams\n')
-    print('ATK:\n')
+    print('Overall Teams')
+    print('ATK:')
     print('AWAY Impact:', round(away_op_score_total_atk, 0), ' AWAY RoamEff:', round(away_op_roam_total_atk, 0))
     print('HOME Impact:', round(home_op_score_total_atk, 0), ' HOME RoamEff:', round(home_op_roam_total_atk, 0))
-    print('DEF:\n')
+    print('\nDEF:')
     print('AWAY Impact:', round(away_op_score_total_def, 0), ' AWAY RoamEff:', round(away_op_roam_total_def, 0))
     print('HOME Impact:', round(home_op_score_total_def, 0), ' HOME RoamEff:', round(home_op_roam_total_def, 0))
 
@@ -423,16 +424,17 @@ def save_player_to_database(player_name, stats):
 
 
 # END FUNCTION DEFINITIONS #
-verbose_stats = False
 
-save_to_database = True
 db = {}
+verbose_stats = False
+save_to_database = True
 
-ban_report(home_team='coolvibes',away_team='dokkaebees')
-print('\n\n')
-# presence_report('coolvibes')
+def run():
+    ban_report(home_team='coolvibes',away_team='dokkaebees', show_home=False)
+    print('\n\n')
+    # presence_report('coolvibes')
 
-if save_to_database:
-    write_database_file()
+    if save_to_database:
+        write_database_file()
 
-#TODO: write ideal team analysis
+#run()
