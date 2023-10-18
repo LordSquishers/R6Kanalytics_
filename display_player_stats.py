@@ -24,7 +24,7 @@ def display(player_name):
     print('[ATTACK]')
     print(create_table([score_atk, roam_atk], ['Impact', 'RoamEff'], 5, 3))
     for op in lookup.ATK_OPS:
-        if op in roam_atk and roam_atk[op] < 4:
+        if op in roam_atk and roam_atk[op] < -99:
             score_atk.pop(op)
             roam_atk.pop(op)
     print(create_table([roam_atk, score_atk], ['RoamEff', 'Impact'], 5, 5))
@@ -32,7 +32,7 @@ def display(player_name):
     print('\n[DEFENCE]')
     print(create_table([score_def, roam_def], ['Impact', 'RoamEff'], 5, 3))
     for op in lookup.DEF_OPS:
-        if op in roam_def and roam_def[op] < 8:
+        if op in roam_def and roam_def[op] < 99:
             score_def.pop(op)
             roam_def.pop(op)
     print(create_table([roam_def, score_def], ['RoamEff', 'Impact'], 5, 5))
@@ -51,4 +51,4 @@ def get_player_by_name(player_name):
     return op_overall_scores_atk, op_roam_scores_atk, op_overall_scores_def, op_roam_scores_def, total_value
 
 
-display('coolvibes/lord_squishers')
+display('dokkaebees/fury')

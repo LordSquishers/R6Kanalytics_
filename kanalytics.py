@@ -80,7 +80,7 @@ def handle_player(pfile, overall_params, roam_params, print_individual_statistic
 
         # gather all materials
         op_time_played = op_data['TIMEPLAYED']  # (minutes)
-        if op_time_played < 20:  # minutes
+        if op_time_played < 30:  # minutes
             continue
         op_presence = op_time_played / (total_time_played_atk if is_atk else total_time_played_def)
 
@@ -132,7 +132,7 @@ def handle_player(pfile, overall_params, roam_params, print_individual_statistic
         print('[ATTACK]')
         print(create_table([score_atk, roam_atk], ['Impact', 'RoamEff'], 5, 3))
     for op in lookup.ATK_OPS:
-        if op in roam_atk and roam_atk[op] < 4:
+        if op in roam_atk and roam_atk[op] < -99:
             score_atk.pop(op)
             roam_atk.pop(op)
     if print_individual_statistics:
@@ -141,7 +141,7 @@ def handle_player(pfile, overall_params, roam_params, print_individual_statistic
         print('\n[DEFENCE]')
         print(create_table([score_def, roam_def], ['Impact', 'RoamEff'], 5, 3))
     for op in lookup.DEF_OPS:
-        if op in roam_def and roam_def[op] < 8:
+        if op in roam_def and roam_def[op] < -99:
             score_def.pop(op)
             roam_def.pop(op)
     if print_individual_statistics:
@@ -426,15 +426,15 @@ def save_player_to_database(player_name, stats):
 # END FUNCTION DEFINITIONS #
 
 db = {}
-verbose_stats = False
+verbose_stats = True
 save_to_database = True
 
 def run():
-    ban_report(home_team='coolvibes',away_team='dokkaebees', show_home=False)
+    # ban_report(home_team='dokkaebees',away_team='OPPONENTS', show_home=False)
     print('\n\n')
-    # presence_report('coolvibes')
+    presence_report('dokkaebees')
 
     if save_to_database:
         write_database_file()
 
-#run()
+run()
