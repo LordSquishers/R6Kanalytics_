@@ -2,13 +2,17 @@
 
 This is a Python project that numerically analyzes operator data of two teams of five in Rainbow Six: Siege. Due to the lack of available APIs to retreive data, player data must be retrieved manually through the use of a JS script run in browser on the Ubisoft R6 Statistics webpage.
 
+NOTE: Last used for Operation Heavy Mettle, but should work with new Operations unless the stats page has changed. You will need to add new operators to `lookup.py` to categorize them as ATK or DEF, otherwise they will default to one side.
+
 # Usage:
 To install, first run `pip install -r requirements.txt`.
 
 To run:
 `py kanalytics.py`. Output is in to console.
 
-Create JSON files for each player using the provided `statcopypaste.js` script. Open the Ubisoft R6 Stats page, choose the player, and open the operators tab. Open the JS Developer Console on your browser of choice and paste the JS script contents. Copy the resulting data into the JSON file (name of the JSON file does not matter).
+Create JSON files for each player using the provided `statcopypaste.js` script. Open the Ubisoft R6 Stats page, choose the player, and open the operators tab. Open the JS Developer Console on your browser of choice and paste the JS script contents. Copy the resulting data into the JSON file (name of the JSON file does not matter). You will need to modify the `kanalytics.py` file to point to the correct team folders. Team folders are placed in the same directory as the python file.
+
+There is also "halo" folder, which converts Match Results pages from HaloWaypoint into a copy-pastable format for spreadsheets. Just a nice little utility.
 
 # Details:
 
